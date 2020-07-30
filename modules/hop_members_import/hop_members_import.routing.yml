@@ -1,0 +1,7 @@
+hop_members_import.content:
+  path: '/hop_members_import'
+  defaults:
+    _controller: '\Drupal\hop_members_import\Controller\hop_members_importController::content'
+    _title: 'HOP Members import service is working'
+  requirements:
+    _permission: 'access content'

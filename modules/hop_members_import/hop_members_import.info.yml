@@ -1,0 +1,6 @@
+name: HoP Members' Module
+description: Creates HOP members importing module.
+package: Custom
+type: module
+core: 8.x
+version: 1.0

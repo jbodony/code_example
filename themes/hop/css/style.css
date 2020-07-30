@@ -1,0 +1,20 @@
+/**
+ * Place your custom styles here.
+ */
+
+.see-footnote {
+  vertical-align: super;
+  font-size: smaller;	
+} 
+
+.member-biography p {
+  text-align: justify;
+  text-justify: inter-word;
+}
+
+.footnotes li{
+  list-style-type: none;
+}
+.block-views-blockmembers-by-volumes-members-1422-61 {
+  width: 300px;
+}

@@ -1,0 +1,210 @@
+<?php
+
+/**
+ * @file
+ * Bootstrap sub-theme.
+ *
+ * Place your custom PHP code in this file.
+ */
+use Drupal\footnotes\Plugin\Filter\FootnotesFilter;
+// Base class for the filter.
+use Drupal\filter\Plugin\FilterBase;
+// Necessary for settings forms.
+use Drupal\Core\Form\FormStateInterface;
+// Necessary for result of process().
+use Drupal\filter\FilterProcessResult;
+use Drupal\Component\Utility\Xss;
+
+/**
+ * Implements hook_preprocess_HOOK() for node template
+ */
+function hop_preprocess_node(&$variables) {
+
+  if ('member_biography' == $variables['node']->getType()) {
+
+    $fn_constituency_rows = array();
+    $field_footnotes = $fn_constituency = $fn_family = $fn_career = $fn_other = $fn_biography = $fn_footnotes = "";
+
+    $fcnames = array(
+      "field_address" => array("field_address_country", "field_address_county", "field_address_house_name", "field_address_town", "field_address_type"),
+      "field_alternative_surname" => array("field_as_alias_type", "field_as_alternative_surname", "field_as_cross_reference_type", "field_as_use_cross_reference"),
+      "field_career_detail" => array("field_cd_career_type", "field_cd_career_detail"),
+      "field_constituency" => array("field_ct_accurate_date", "field_ct_additional_information", "field_ct_by_election", "field_ct_constituency_name", "field_ct_did_not_sit", "field_ct_end_day", "field_ct_end_month", "field_ct_end_year", "field_ct_notes_field", "field_ct_end_prefix", "field_ct_start_prefix", "field_ct_start_day", "field_ct_start_month", "field_ct_start_year"),
+      "field_other_information" => array("field_oi_description", "field_oi_type"),
+    );
+
+    foreach ($fcnames as $key => $fcname) {
+      $variables['hop'][$key] = get_fieldcollection_fields($variables, $key, $fcname);
+    }
+
+    // FAMILY AND EDUCATION body
+    // Generates Constituency + add footnotes text
+    $constituencies = array();
+
+    foreach ($variables['hop']["field_constituency"] as $key => $field_constituency) {
+
+      $constituency = array();
+      $container = \Drupal::getContainer();
+
+      // To do: checking $field_constituency["field_ct_constituency_name"][0]['target_id']
+      $term = $container->get('entity.manager')->getStorage('taxonomy_term')->load($field_constituency["field_ct_constituency_name"][0]['target_id']);
+
+      $field_constituency_name = $term->name->value;
+
+      //$field_constituency_name = \Drupal::entityTypeManager()->getStorage("taxonomy_term")->load($field_constituency["field_constituency_name"][0]['target_id']);
+
+      $field_accurate_date = (isset($field_constituency["field_ct_accurate_date"][0]['value'])) ? $field_constituency["field_ct_accurate_date"][0]['value'] : "";
+      $field_additional_information = isset($field_constituency["field_ct_additional_information"][0]['value']) ? $field_constituency["field_ct_additional_information"][0]['value'] : "";
+      $field_by_election = isset($field_constituency["field_ct_by_election"][0]['value']) ? $field_constituency["field_ct_by_election"][0]['value'] : "";
+      $field_did_not_sit = isset($field_constituency["field_ct_did_not_sit"][0]['value']) ? $field_constituency["field_ct_did_not_sit"][0]['value'] : "";
+      $field_start_prefix = isset($field_constituency["field_ct_start_prefix"][0]['value']) ? $field_constituency["field_ct_start_prefix"][0]['value'] : "";
+      $field_start_day = isset($field_constituency["field_ct_start_day"][0]['value']) ? $field_constituency["field_ct_start_day"][0]['value'] : "";
+      $field_start_month = isset($field_constituency["field_ct_start_month"][0]['value']) ? date_month_names_short($field_constituency["field_ct_start_month"][0]['value']) : "";
+      $field_start_year = isset($field_constituency["field_ct_start_year"][0]['value']) ? $field_constituency["field_ct_start_year"][0]['value'] : "";
+      $field_end_prefix = isset($field_constituency["field_ct_end_prefix"][0]['value']) ? $field_constituency["field_ct_end_prefix"][0]['value'] : "";
+      $field_end_day = isset($field_constituency["field_ct_end_day"][0]['value']) ? $field_constituency["field_ct_end_day"][0]['value'] : "";
+      $field_end_month = isset($field_constituency["field_ct_end_month"][0]['value']) ? date_month_names_short($field_constituency["field_ct_end_month"][0]['value']) : "";
+      $field_end_year = isset($field_constituency["field_ct_end_year"][0]['value']) ? $field_constituency["field_ct_end_year"][0]['value'] : "";
+      $field_notes_field = isset($field_constituency["field_ct_notes_field"][0]['value']) ? $field_constituency["field_ct_notes_field"][0]['value'] : "";
+
+      if ($field_constituency_name != "") {
+        $field_constituency_name = strtoupper($field_constituency_name);
+        $field_constituency_name_txt = ($field_notes_field != "") ? $field_constituency_name . "<fn>$field_notes_field</fn>" : $field_constituency_name;
+      }
+      $const_data = array();
+
+      if ($field_did_not_sit != "yes") {
+
+        if ($field_start_prefix != "")
+          $const_data[] = $field_start_prefix;
+        if ($field_start_day != "")
+          $const_data[] = $field_start_day;
+        if ($field_start_month != "")
+          $const_data[] = $field_start_prefix;
+        if ($field_start_year != "")
+          $const_data[] = $field_start_year;
+        if ($field_end_prefix != "")
+          $const_data[] = $field_end_prefix;
+        if ($field_end_day != "")
+          $const_data[] = $field_end_day;
+        if ($field_end_month != "")
+          $const_data[] = $field_end_month;
+        if ($field_end_year != "")
+          $const_data[] = $field_end_year;
+      }
+      else {
+        $const_data[] = "did not sit.";
+      }
+
+      $const = array();
+
+      if (!empty($field_constituency_name))
+        $const[] = $field_constituency_name . "<constdata>";
+      if (!empty($field_constituency_name_txt))
+        $const[] = "$field_constituency_name_txt<constdata>";
+      if (!empty($const_data))
+        $const[] = implode(" ", $const_data);
+
+      $constituency = implode(" ", $const);
+      $constituencies[] = "$constituency<constituency>";
+    }
+
+    $full_footnotes_text = implode("", $constituencies);
+
+    // Education - one field
+    // Combined field will be separated by <hoptext> 
+    
+    $full_footnotes_text .= "<hoptext>";
+    $full_footnotes_text .= (!empty($variables['content']['body'][0]['#text'])) ? $variables['content']['body'][0]['#text'] : "";
+
+    // Career - many fields
+    $full_footnotes_text .= "<hoptext>";
+    foreach ($variables['hop']["field_career_detail"] as $key => $field_career_detail) {
+      $full_footnotes_text .= $field_career_detail["field_cd_career_detail"][0]['value'];
+    }
+
+    //Other information - one field
+    $full_footnotes_text .= "<hoptext>";
+    foreach ($variables['hop']["field_other_information"] as $key => $field_other_information) {
+      $full_footnotes_text .= $field_other_information["field_oi_description"][0]['value'];
+    }
+
+    $full_footnotes_text .= "<hoptext>";
+    $full_footnotes_text .= (!empty($variables['content']['field_biography'][0]['#text'])) ? $variables['content']['field_biography'][0]['#text'] . "<hoptext>" : "<hoptext>";
+
+    //Slice full HTML text by <hoptext>;
+
+    if (str_replace('<hoptext>', "", $full_footnotes_text) != "") {
+      $field_footnotes = check_markup($full_footnotes_text, "full_html", 'en', array());
+      list($fn_constituency, $fn_family, $fn_career, $fn_other, $fn_biography, $fn_footnotes) = explode('<hoptext>', $field_footnotes);
+    }
+
+    //$variables['hop']['fn']["fn_constituency"] = $fn_constituency;
+
+    $fn_const_records = explode('<constituency>', $fn_constituency);
+
+    foreach ($fn_const_records as $key => $fn_const_record) {
+
+      if (!empty($fn_const_record)) {
+        $fn_const_fields = explode('<constdata>', $fn_const_record);
+        $fn_constituency_rows[$fn_const_fields[0]] = (isset($fn_constituency_rows[$fn_const_fields[0]])) ? $fn_constituency_rows[$fn_const_fields[0]] . ", " . $fn_const_fields[2] : $fn_const_fields[1] . " " . $fn_const_fields[2];
+      }
+    }
+
+    $field_constituencies_txt = "";
+
+    foreach ($fn_constituency_rows as $key => $fn_constituency_row) {
+      $field_constituencies_txt .= "<p>$fn_constituency_row</p>";
+    }
+
+    //Get the outputs
+
+    $variables['hop']['fn']["fn_constituency"] = $field_constituencies_txt;
+    $variables['hop']['fn']["fn_family"] = $fn_family;
+    $variables['hop']['fn']["fn_career"] = $fn_career;
+    $variables['hop']['fn']["fn_other"] = $fn_other;
+    $variables['hop']['fn']["fn_biography"] = $fn_biography;
+    $variables['hop']['fn']["fn_footnotes"] = $fn_footnotes;
+  
+    if (!empty($variables['node']->get('field_author')->getValue()[0]['target_id'])) {
+      $node = \Drupal\node\Entity\Node::load($variables['node']->get('field_author')->getValue()[0]['target_id']);
+      $variables['hop']['author'] = $node->field_author_initials->value;
+    }
+    else
+      $variables['hop']['author'] = "";
+
+    $variables['hop']["full_footnotes_text"] = $full_footnotes_text;
+    $variables['hop']["field_footnotes"] = $field_footnotes;
+  }
+}
+
+/**
+ * Gets field collection fields and their values
+ */
+function get_fieldcollection_fields($variables, $key, $fcname) {
+
+  $i = 0;
+  $fcArray = array();
+
+  foreach ($variables['node']->$key as $key2 => $item) {
+    $item = $item->value;
+
+    if ($item != "") {
+      $fc = \Drupal\field_collection\Entity\FieldCollectionItem::load($item);
+
+      //TO DO: the script should collect the field collection fields automatically  
+      foreach ($fcname as $key3 => $field) {
+        $fcArray[$i][$field] = $fc->get($field)->getValue();
+      }
+      $i++;
+      unset($fc);
+    }
+  }
+
+  return ( $fcArray );
+}
+
+function date_month_names_short() {
+
+  return array("", "Jan.", "Feb.", "Mar.", "Apr.", "May", "June", "July", "Aug.", "Sept.", "Oct.", "Nov.", "Dec.");
+}

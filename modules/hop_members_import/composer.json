@@ -1,0 +1,6 @@
+{
+    "name": "drupal/hop_members_import",
+    "description": "This is a composer.json for hop_members_import module.",
+    "type": "drupal-module",
+    "license": "GPL-2.0+"
+}

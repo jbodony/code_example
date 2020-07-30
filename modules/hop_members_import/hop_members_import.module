@@ -1,0 +1,23 @@
+<?php
+/**
+ * @File
+ * HOP custom module for Drupal 8.
+ * @author Janos Bodony
+ */
+ 
+/**
+ * Implementing hook_menu().
+ */
+function hop_members_import_menu() {
+  // The paths given here need to match the ones in example.routing.yml exactly.
+  $items['/hop_members_import'] = array(
+    'title' => 'HoP hop_members_import page',
+    'description' => 'This is an import page.',
+    // The name of the route from example.routing.yml
+    'route' => 'hop_members_import.content',
+  );
+  return $items;
+}
+
+
+
